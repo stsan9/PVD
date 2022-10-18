@@ -755,12 +755,49 @@ def train(gpu, opt, output_dir, noises_init):
 
     dist.destroy_process_group()
 
+
+class PointDataset(torch.utils.data.Dataset):
+    def __init__(self, points) -> None:
+        super(PointDataset, self).__init__()
+        self.points = points
+        
+    def __getitem__(self, idx : int) -> torch.tensor:
+        current_points = self.points[idx]
+        current_points = torch.from_numpy(current_points).float()
+        return {
+            'out': current_points,
+            'idx': idx
+        }
+    
+    def __len__(self) -> int:
+        return len(self.points)
+
+
+def load_mnist_data(dataroot):
+    data_file = dataroot + 'full_dataset_vectors.h5'
+    import h5py
+    with h5py.File(data_file, "r") as hf:
+        X_train = hf["X_train"][:]
+        # y_train = hf["y_train"][:]    
+        # X_test = hf["X_test"][:]  
+        # y_test = hf["y_test"][:]  
+
+    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 3)
+    # X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 3)
+
+    return PointDataset(X_train)
+
+
 def main():
     opt = parse_args()
     if opt.category == 'airplane':
         opt.beta_start = 1e-5
         opt.beta_end = 0.008
         opt.schedule_type = 'warm0.1'
+        train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
+
+    if opt.category == 'mnist':
+        train_dataset = load_mnist_data(opt.dataroot, opt.npoints, opt.category)
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
     dir_id = os.path.dirname(__file__)
@@ -768,7 +805,6 @@ def main():
     copy_source(__file__, output_dir)
 
     ''' workaround '''
-    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     noises_init = torch.randn(len(train_dataset), opt.npoints, opt.nc)
 
     if opt.dist_url == "env://" and opt.world_size == -1:
@@ -786,8 +822,8 @@ def main():
 def parse_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', default='ShapeNetCore.v2.PC15k/')
-    parser.add_argument('--category', default='chair')
+    parser.add_argument('--dataroot', default='/diffusionvol/data/mnist_3d/')
+    parser.add_argument('--category', default='mnist')
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
