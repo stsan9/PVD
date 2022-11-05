@@ -1,3 +1,5 @@
+from jetnet.datasets import JetNet
+import h5py
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
@@ -11,6 +13,50 @@ from utils.visualize import *
 from model.pvcnn_generation import PVCNN2Base
 import torch.distributed as dist
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
+
+'''
+custom_dataset
+'''
+class PointDataset(torch.utils.data.Dataset):
+    def __init__(self, points) -> None:
+        super(PointDataset, self).__init__()
+        self.points = points
+        
+    def __getitem__(self, idx : int) -> torch.tensor:
+        current_points = self.points[idx]
+        current_points = torch.from_numpy(current_points).float()
+        return {
+            'train_points': current_points,
+            'idx': idx
+        }
+    
+    def __len__(self) -> int:
+        return len(self.points)
+
+
+def load_mnist_data(dataroot):
+    data_file = dataroot + "train_point_clouds.h5"
+    X_train = []
+    with h5py.File(data_file, "r") as hf:    
+        # import pdb; pdb.set_trace()
+        for i in range(0, 5000):
+            idx = str(i)
+            sample = hf[idx]
+            points = sample["points"][:]
+            X_train.append(points)
+    
+    import pdb; pdb.set_trace()
+    X_train = np.stack(X_train) # to fix, pad so pc have same number of points
+
+    return PointDataset(X_train)
+
+
+def load_gluon_dataset(dataroot):
+    particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
+    particle_data = particle_data[..., :-1] # toss mask dimension
+    dataset_size = 1000
+    particle_data = particle_data[:dataset_size]
+    return PointDataset(particle_data)
 
 '''
 some utils
@@ -570,7 +616,13 @@ def train(gpu, opt, output_dir, noises_init):
 
 
     ''' data '''
-    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
+    if opt.category == 'mnist':
+        train_dataset = load_mnist_data(opt.dataroot)
+
+    if opt.category == 'gluon':
+        train_dataset = load_gluon_dataset(opt.dataroot)
+    else:
+        train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
 
 
@@ -756,37 +808,6 @@ def train(gpu, opt, output_dir, noises_init):
     dist.destroy_process_group()
 
 
-class PointDataset(torch.utils.data.Dataset):
-    def __init__(self, points) -> None:
-        super(PointDataset, self).__init__()
-        self.points = points
-        
-    def __getitem__(self, idx : int) -> torch.tensor:
-        current_points = self.points[idx]
-        current_points = torch.from_numpy(current_points).float()
-        return {
-            'out': current_points,
-            'idx': idx
-        }
-    
-    def __len__(self) -> int:
-        return len(self.points)
-
-
-def load_mnist_data(dataroot):
-    data_file = dataroot + 'full_dataset_vectors.h5'
-    import h5py
-    with h5py.File(data_file, "r") as hf:
-        X_train = hf["X_train"][:]
-        # y_train = hf["y_train"][:]    
-        # X_test = hf["X_test"][:]  
-        # y_test = hf["y_test"][:]  
-
-    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 3)
-    # X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 3)
-
-    return PointDataset(X_train)
-
 
 def main():
     opt = parse_args()
@@ -797,7 +818,11 @@ def main():
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
     if opt.category == 'mnist':
-        train_dataset = load_mnist_data(opt.dataroot, opt.npoints, opt.category)
+        train_dataset = load_mnist_data(opt.dataroot)
+
+    if opt.category == 'gluon':
+        train_dataset = load_gluon_dataset(opt.dataroot)
+
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
     dir_id = os.path.dirname(__file__)
@@ -830,7 +855,7 @@ def parse_args():
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
 
     parser.add_argument('--nc', default=3)
-    parser.add_argument('--npoints', default=2048)
+    parser.add_argument('--npoints', default=30, help='num points in each cloud')
     '''model'''
     parser.add_argument('--beta_start', default=0.0001)
     parser.add_argument('--beta_end', default=0.02)
