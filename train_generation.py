@@ -820,7 +820,7 @@ def train(gpu, opt, output_dir, noises_init):
 
 
         # early stopping
-        if len(loss_list) > 0 and loss > min(loss_list):
+        if len(loss_list) > 0 and epoch_loss > min(loss_list):
             stale_epochs += 1
             if stale_epochs == opt.patience:
 
