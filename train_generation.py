@@ -677,7 +677,8 @@ def train(gpu, opt, output_dir, noises_init):
     def new_x_chain(x, num_chain):
         return torch.randn(num_chain, *x.shape[1:], device=x.device)
 
-
+    stale_epochs = 0
+    loss_list = []
 
     for epoch in range(start_epoch, opt.niter):
 
@@ -702,6 +703,8 @@ def train(gpu, opt, output_dir, noises_init):
                 noises_batch = noises_batch.cuda()
 
             loss = model.get_loss_iter(x, noises_batch).mean()
+
+            loss_list.append(loss)
 
             optimizer.zero_grad()
             loss.backward()
@@ -743,43 +746,42 @@ def train(gpu, opt, output_dir, noises_init):
 
 
 
-        if (epoch + 1) % opt.vizIter == 0 and should_diag:
-            logger.info('Generation: eval')
+        # if (epoch + 1) % opt.vizIter == 0 and should_diag:
+        #     logger.info('Generation: eval')
 
-            model.eval()
-            with torch.no_grad():
+        #     model.eval()
+        #     with torch.no_grad():
 
-                x_gen_eval = model.gen_samples(new_x_chain(x, 25).shape, x.device, clip_denoised=False)
-                x_gen_list = model.gen_sample_traj(new_x_chain(x, 1).shape, x.device, freq=40, clip_denoised=False)
-                x_gen_all = torch.cat(x_gen_list, dim=0)
+        #         x_gen_eval = model.gen_samples(new_x_chain(x, 25).shape, x.device, clip_denoised=False)
+        #         x_gen_list = model.gen_sample_traj(new_x_chain(x, 1).shape, x.device, freq=40, clip_denoised=False)
+        #         x_gen_all = torch.cat(x_gen_list, dim=0)
 
-                gen_stats = [x_gen_eval.mean(), x_gen_eval.std()]
-                gen_eval_range = [x_gen_eval.min().item(), x_gen_eval.max().item()]
+        #         gen_stats = [x_gen_eval.mean(), x_gen_eval.std()]
+        #         gen_eval_range = [x_gen_eval.min().item(), x_gen_eval.max().item()]
 
-                logger.info('      [{:>3d}/{:>3d}]  '
-                             'eval_gen_range: [{:>10.4f}, {:>10.4f}]     '
-                             'eval_gen_stats: [mean={:>10.4f}, std={:>10.4f}]      '
-                    .format(
-                    epoch, opt.niter,
-                    *gen_eval_range, *gen_stats,
-                ))
+        #         logger.info('      [{:>3d}/{:>3d}]  '
+        #                      'eval_gen_range: [{:>10.4f}, {:>10.4f}]     '
+        #                      'eval_gen_stats: [mean={:>10.4f}, std={:>10.4f}]      '
+        #             .format(
+        #             epoch, opt.niter,
+        #             *gen_eval_range, *gen_stats,
+        #         ))
 
-            visualize_pointcloud_batch('%s/epoch_%03d_samples_eval.png' % (outf_syn, epoch),
-                                       x_gen_eval.transpose(1, 2), None, None,
-                                       None)
+        #     visualize_pointcloud_batch('%s/epoch_%03d_samples_eval.png' % (outf_syn, epoch),
+        #                                x_gen_eval.transpose(1, 2), None, None,
+        #                                None)
 
-            visualize_pointcloud_batch('%s/epoch_%03d_samples_eval_all.png' % (outf_syn, epoch),
-                                       x_gen_all.transpose(1, 2), None,
-                                       None,
-                                       None)
+        #     visualize_pointcloud_batch('%s/epoch_%03d_samples_eval_all.png' % (outf_syn, epoch),
+        #                                x_gen_all.transpose(1, 2), None,
+        #                                None,
+        #                                None)
 
-            visualize_pointcloud_batch('%s/epoch_%03d_x.png' % (outf_syn, epoch), x.transpose(1, 2), None,
-                                       None,
-                                       None)
+        #     visualize_pointcloud_batch('%s/epoch_%03d_x.png' % (outf_syn, epoch), x.transpose(1, 2), None,
+        #                                None,
+        #                                None)
 
-            logger.info('Generation: train')
-            model.train()
-
+        #     logger.info('Generation: train')
+        #     model.train()
 
 
 
@@ -799,6 +801,7 @@ def train(gpu, opt, output_dir, noises_init):
                 }
 
                 torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
+                torch.save(loss_list, '%s/loss_list_%d.pt' % (output_dir, epoch))
 
 
             if opt.distribution_type == 'multi':
@@ -806,6 +809,37 @@ def train(gpu, opt, output_dir, noises_init):
                 map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
                 model.load_state_dict(
                     torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
+        
+
+
+
+        # early stopping
+        if len(loss_list) > 0 and loss > min(loss_list):
+            stale_epochs += 1
+            if stale_epochs == opt.patience:
+
+                if should_diag:
+                    save_dict = {
+                        'epoch': epoch,
+                        'model_state': model.state_dict(),
+                        'optimizer_state': optimizer.state_dict()
+                    }
+
+                    torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
+                    torch.save(loss_list, '%s/loss_list_%d.pt' % (output_dir, epoch))
+
+
+                if opt.distribution_type == 'multi':
+                    dist.barrier()
+                    map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
+                    model.load_state_dict(
+                        torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
+
+
+                break
+        else:
+            stale_epochs = 0
+
 
 	# TODO: eric modify
     if opt.distribution_type == 'multi':
@@ -882,6 +916,7 @@ def parse_args():
     parser.add_argument('--decay', type=float, default=0, help='weight decay for EBM')
     parser.add_argument('--grad_clip', type=float, default=None, help='weight decay for EBM')
     parser.add_argument('--lr_gamma', type=float, default=0.998, help='lr decay for EBM')
+    parser.add_argument('--patience', type=int, default=10, help='early stopping patience')
 
     parser.add_argument('--model', default='', help="path to model (to continue training)")
 
