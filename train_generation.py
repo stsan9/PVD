@@ -686,6 +686,8 @@ def train(gpu, opt, output_dir, noises_init):
             train_sampler.set_epoch(epoch)
 
 
+        epoch_loss = 0
+
         for i, data in enumerate(dataloader):
             x = data['train_points'].transpose(1,2)
             noises_batch = noises_init[data['idx']].transpose(1,2)
@@ -701,9 +703,8 @@ def train(gpu, opt, output_dir, noises_init):
                 x = x.cuda()
                 noises_batch = noises_batch.cuda()
 
-            loss = model.get_loss_iter(x, noises_batch).mean()
-
-            loss_list.append(loss.item())
+            loss_all = model.get_loss_iter(x, noises_batch)
+            loss = loss_all.mean()
 
             optimizer.zero_grad()
             loss.backward()
@@ -714,6 +715,7 @@ def train(gpu, opt, output_dir, noises_init):
             optimizer.step()
             lr_scheduler.step()
 
+            epoch_loss += loss_all.sum().item()
 
             if i % opt.print_freq == 0 and should_diag:
 
@@ -723,6 +725,10 @@ def train(gpu, opt, output_dir, noises_init):
                         epoch, opt.niter, i, len(dataloader),loss.item(),
                     netpNorm, netgradNorm,
                         ))
+        
+
+        epoch_loss /= opt.bs
+        loss_list.append(epoch_loss)
 
 
         if (epoch + 1) % opt.diagIter == 0 and should_diag:
