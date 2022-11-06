@@ -685,7 +685,6 @@ def train(gpu, opt, output_dir, noises_init):
         if opt.distribution_type == 'multi':
             train_sampler.set_epoch(epoch)
 
-        lr_scheduler.step(epoch)
 
         for i, data in enumerate(dataloader):
             x = data['train_points'].transpose(1,2)
@@ -713,6 +712,7 @@ def train(gpu, opt, output_dir, noises_init):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip)
 
             optimizer.step()
+            lr_scheduler.step()
 
 
             if i % opt.print_freq == 0 and should_diag:
