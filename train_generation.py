@@ -805,7 +805,9 @@ def train(gpu, opt, output_dir, noises_init):
                 model.load_state_dict(
                     torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
 
-    dist.destroy_process_group()
+	# TODO: eric modify
+    if opt.distribution_type == 'multi':
+        dist.destroy_process_group() # originally wasn't in if statement
 
 
 
