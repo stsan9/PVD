@@ -731,24 +731,24 @@ def train(gpu, opt, output_dir, noises_init):
         loss_list.append(epoch_loss)
 
 
-        if (epoch + 1) % opt.diagIter == 0 and should_diag:
+        # if (epoch + 1) % opt.diagIter == 0 and should_diag:
 
-            logger.info('Diagnosis:')
+        #     logger.info('Diagnosis:')
 
-            x_range = [x.min().item(), x.max().item()]
-            kl_stats = model.all_kl(x)
-            logger.info('      [{:>3d}/{:>3d}]    '
-                         'x_range: [{:>10.4f}, {:>10.4f}],   '
-                         'total_bpd_b: {:>10.4f},    '
-                         'terms_bpd: {:>10.4f},  '
-                         'prior_bpd_b: {:>10.4f}    '
-                         'mse_bt: {:>10.4f}  '
-                .format(
-                epoch, opt.niter,
-                *x_range,
-                kl_stats['total_bpd_b'].item(),
-                kl_stats['terms_bpd'].item(), kl_stats['prior_bpd_b'].item(), kl_stats['mse_bt'].item()
-            ))
+        #     x_range = [x.min().item(), x.max().item()]
+        #     kl_stats = model.all_kl(x)
+        #     logger.info('      [{:>3d}/{:>3d}]    '
+        #                  'x_range: [{:>10.4f}, {:>10.4f}],   '
+        #                  'total_bpd_b: {:>10.4f},    '
+        #                  'terms_bpd: {:>10.4f},  '
+        #                  'prior_bpd_b: {:>10.4f}    '
+        #                  'mse_bt: {:>10.4f}  '
+        #         .format(
+        #         epoch, opt.niter,
+        #         *x_range,
+        #         kl_stats['total_bpd_b'].item(),
+        #         kl_stats['terms_bpd'].item(), kl_stats['prior_bpd_b'].item(), kl_stats['mse_bt'].item()
+        #     ))
 
 
 
@@ -795,11 +795,40 @@ def train(gpu, opt, output_dir, noises_init):
 
 
 
-        if (epoch + 1) % opt.saveIter == 0:
+        # if (epoch + 1) % opt.saveIter == 0:
 
+        #     if should_diag:
+
+
+        #         save_dict = {
+        #             'epoch': epoch,
+        #             'model_state': model.state_dict(),
+        #             'optimizer_state': optimizer.state_dict()
+        #         }
+
+        #         torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
+        #         torch.save(loss_list, '%s/loss_list_%d.pt' % (output_dir, epoch))
+
+
+        #     if opt.distribution_type == 'multi':
+        #         dist.barrier()
+        #         map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
+        #         model.load_state_dict(
+        #             torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
+        
+
+
+
+        # early stopping
+        if len(loss_list) > 0 and loss > min(loss_list):
+            stale_epochs += 1
+            if stale_epochs == opt.patience:
+                break
+
+
+        else:
+            stale_epochs = 0
             if should_diag:
-
-
                 save_dict = {
                     'epoch': epoch,
                     'model_state': model.state_dict(),
@@ -809,42 +838,11 @@ def train(gpu, opt, output_dir, noises_init):
                 torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
                 torch.save(loss_list, '%s/loss_list_%d.pt' % (output_dir, epoch))
 
-
             if opt.distribution_type == 'multi':
                 dist.barrier()
                 map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
                 model.load_state_dict(
                     torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
-        
-
-
-
-        # early stopping
-        if len(loss_list) > 0 and loss > min(loss_list):
-            stale_epochs += 1
-            if stale_epochs == opt.patience:
-
-                if should_diag:
-                    save_dict = {
-                        'epoch': epoch,
-                        'model_state': model.state_dict(),
-                        'optimizer_state': optimizer.state_dict()
-                    }
-
-                    torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
-                    torch.save(loss_list, '%s/loss_list_%d.pt' % (output_dir, epoch))
-
-
-                if opt.distribution_type == 'multi':
-                    dist.barrier()
-                    map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
-                    model.load_state_dict(
-                        torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
-
-
-                break
-        else:
-            stale_epochs = 0
 
 
 	# TODO: eric modify
