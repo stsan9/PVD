@@ -1,5 +1,6 @@
 from jetnet.datasets import JetNet
 import h5py
+
 import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
@@ -829,7 +830,10 @@ def main():
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
     dir_id = os.path.dirname(__file__)
-    output_dir = get_output_dir(dir_id, exp_id)
+    if opt.save_to_vol:
+        output_dir = get_output_dir_vol(dir_id, exp_id)
+    else:
+        output_dir = get_output_dir(dir_id, exp_id)
     copy_source(__file__, output_dir)
 
     ''' workaround '''
@@ -900,12 +904,14 @@ def parse_args():
                         help='GPU id to use. None means using all available GPUs.')
 
     '''eval'''
-    parser.add_argument('--saveIter', default=100, help='unit: epoch')
-    parser.add_argument('--diagIter', default=50, help='unit: epoch')
-    parser.add_argument('--vizIter', default=50, help='unit: epoch')
-    parser.add_argument('--print_freq', default=50, help='unit: iter')
+    parser.add_argument('--saveIter', default=100, type=int, help='unit: epoch')
+    parser.add_argument('--diagIter', default=50, type=int, help='unit: epoch')
+    parser.add_argument('--vizIter', default=50, type=int, help='unit: epoch')
+    parser.add_argument('--print_freq', default=50, type=int, help='unit: iter')
 
     parser.add_argument('--manualSeed', default=42, type=int, help='random seed')
+    parser.add_argument('--name', default=None, help='Optional name for experiment')
+    parser.add_argument('--save_to_vol', default=True, help='Output directory into /diffusionvol/')
 
 
     opt = parser.parse_args()

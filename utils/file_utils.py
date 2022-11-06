@@ -50,6 +50,12 @@ def get_output_dir(prefix, exp_id):
         os.makedirs(output_dir)
     return output_dir
 
+def get_output_dir_vol(prefix, exp_id):
+    t = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    output_dir = os.path.join('/diffusionvol/experiments/' + exp_id, t)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    return output_dir
 
 
 def set_seed(opt):
