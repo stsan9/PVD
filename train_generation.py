@@ -55,6 +55,8 @@ def load_gluon_dataset(dataroot):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
     particle_data = particle_data[..., :-1] # toss mask dimension
     dataset_size = 1000
+    np.random.seed(0)
+    np.random.shuffle(particle_data)
     particle_data = particle_data[:dataset_size]
     return PointDataset(particle_data)
 
