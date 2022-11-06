@@ -946,7 +946,7 @@ def parse_args():
 
     parser.add_argument('--manualSeed', default=42, type=int, help='random seed')
     parser.add_argument('--name', default=None, help='Optional name for experiment')
-    parser.add_argument('--save_to_vol', default=True, help='Output directory into /diffusionvol/')
+    parser.add_argument('--save_to_vol', action='store_true', help='Output directory into /diffusionvol/')
 
 
     opt = parser.parse_args()
