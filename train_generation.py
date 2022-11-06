@@ -704,7 +704,7 @@ def train(gpu, opt, output_dir, noises_init):
 
             loss = model.get_loss_iter(x, noises_batch).mean()
 
-            loss_list.append(loss)
+            loss_list.append(loss.item())
 
             optimizer.zero_grad()
             loss.backward()
