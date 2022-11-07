@@ -1,7 +1,10 @@
+from jetnet.datasets import JetNet
+import h5py
+
 import torch
 from pprint import pprint
-from metrics.evaluation_metrics import jsd_between_point_cloud_sets as JSD
-from metrics.evaluation_metrics import compute_all_metrics, EMD_CD
+# from metrics.evaluation_metrics import jsd_between_point_cloud_sets as JSD
+# from metrics.evaluation_metrics import compute_all_metrics, EMD_CD
 
 import torch.nn as nn
 import torch.utils.data
@@ -16,6 +19,60 @@ from model.pvcnn_generation import PVCNN2Base
 from tqdm import tqdm
 
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
+
+'''
+custom_dataset
+'''
+class PointDataset(torch.utils.data.Dataset):
+    def __init__(self, points) -> None:
+        super(PointDataset, self).__init__()
+        self.points = points
+        self.m = points.mean(axis=1).reshape(-1, 1, 3)
+        self.std = points.std(axis=1).reshape(-1, 1, 3)
+        
+    def __getitem__(self, idx : int) -> torch.tensor:
+        current_points = self.points[idx]
+        current_points = torch.from_numpy(current_points).float()
+        m = self.m[idx]
+        std = self.std[idx]
+        m = torch.from_numpy(m).float()
+        std = torch.from_numpy(std).float()
+        return {
+            'train_points': current_points,
+            'test_points': current_points,  # doesn't really matter
+            'idx': idx,
+            'mean': m,
+            'std': std
+        }
+    
+    def __len__(self) -> int:
+        return len(self.points)
+
+
+def load_mnist_data(dataroot):
+    data_file = dataroot + "train_point_clouds.h5"
+    X_train = []
+    with h5py.File(data_file, "r") as hf:    
+        # import pdb; pdb.set_trace()
+        for i in range(0, 5000):
+            idx = str(i)
+            sample = hf[idx]
+            points = sample["points"][:]
+            X_train.append(points)
+    
+    import pdb; pdb.set_trace()
+    X_train = np.stack(X_train) # to fix, pad so pc have same number of points
+
+    return PointDataset(X_train)
+
+
+def load_gluon_dataset(dataroot):
+    particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
+    particle_data = particle_data[..., :-1] # toss mask dimension
+    dataset_size = 1000
+    np.random.shuffle(particle_data)
+    particle_data = particle_data[:dataset_size]
+    return PointDataset(particle_data)
 
 '''
 models
@@ -217,7 +274,8 @@ class GaussianDiffusion:
 
         assert isinstance(shape, (tuple, list))
         img_t = noise_fn(size=shape, dtype=torch.float, device=device)
-        for t in reversed(range(0, final_time if not keep_running else len(self.betas))):
+        loop_range = final_time if not keep_running else len(self.betas)
+        for t in tqdm(reversed(range(0, loop_range)), total=loop_range, leave=False, desc='p_loop'):
             img_t = constrain_fn(img_t, t)
             t_ = torch.empty(shape[0], dtype=torch.int64, device=device).fill_(t)
             img_t = self.p_sample(denoise_fn=denoise_fn, data=img_t,t=t_, noise_fn=noise_fn,
@@ -402,46 +460,48 @@ def get_dataset(dataroot, npoints,category,use_mask=False):
 
 
 
-def evaluate_gen(opt, ref_pcs, logger):
+# def evaluate_gen(opt, ref_pcs, logger):
 
-    if ref_pcs is None:
-        _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category, use_mask=False)
-        test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
-                                                      shuffle=False, num_workers=int(opt.workers), drop_last=False)
-        ref = []
-        for data in tqdm(test_dataloader, total=len(test_dataloader), desc='Generating Samples'):
-            x = data['test_points']
-            m, s = data['mean'].float(), data['std'].float()
+#     if ref_pcs is None:
+#         _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category, use_mask=False)
+#         test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
+#                                                       shuffle=False, num_workers=int(opt.workers), drop_last=False)
+#         ref = []
+#         for data in tqdm(test_dataloader, total=len(test_dataloader), desc='Generating Samples'):
+#             x = data['test_points']
+#             m, s = data['mean'].float(), data['std'].float()
 
-            ref.append(x*s + m)
+#             ref.append(x*s + m)
 
-        ref_pcs = torch.cat(ref, dim=0).contiguous()
+#         ref_pcs = torch.cat(ref, dim=0).contiguous()
 
-    logger.info("Loading sample path: %s"
-      % (opt.eval_path))
-    sample_pcs = torch.load(opt.eval_path).contiguous()
+#     logger.info("Loading sample path: %s"
+#       % (opt.eval_path))
+#     sample_pcs = torch.load(opt.eval_path).contiguous()
 
-    logger.info("Generation sample size:%s reference size: %s"
-          % (sample_pcs.size(), ref_pcs.size()))
+#     logger.info("Generation sample size:%s reference size: %s"
+#           % (sample_pcs.size(), ref_pcs.size()))
 
 
-    # Compute metrics
-    results = compute_all_metrics(sample_pcs, ref_pcs, opt.batch_size)
-    results = {k: (v.cpu().detach().item()
-                   if not isinstance(v, float) else v) for k, v in results.items()}
+#     # Compute metrics
+#     results = compute_all_metrics(sample_pcs, ref_pcs, opt.batch_size)
+#     results = {k: (v.cpu().detach().item()
+#                    if not isinstance(v, float) else v) for k, v in results.items()}
 
-    pprint(results)
-    logger.info(results)
+#     pprint(results)
+#     logger.info(results)
 
-    jsd = JSD(sample_pcs.numpy(), ref_pcs.numpy())
-    pprint('JSD: {}'.format(jsd))
-    logger.info('JSD: {}'.format(jsd))
+#     jsd = JSD(sample_pcs.numpy(), ref_pcs.numpy())
+#     pprint('JSD: {}'.format(jsd))
+#     logger.info('JSD: {}'.format(jsd))
 
 
 
 def generate(model, opt):
 
-    _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
+    if opt.category == 'gluon':
+        test_dataset = load_gluon_dataset(opt.dataroot)
+    # _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
                                                   shuffle=False, num_workers=int(opt.workers), drop_last=False)
@@ -469,13 +529,14 @@ def generate(model, opt):
             samples.append(gen)
             ref.append(x)
 
-            visualize_pointcloud_batch(os.path.join(str(Path(opt.eval_path).parent), 'x.png'), gen[:64], None,
-                                       None, None)
+            # visualize_pointcloud_batch(os.path.join(str(Path(opt.eval_path).parent), 'x.png'), gen[:64], None,
+            #                            None, None)
 
         samples = torch.cat(samples, dim=0)
         ref = torch.cat(ref, dim=0)
 
         torch.save(samples, opt.eval_path)
+        torch.save(ref, opt.eval_path[:-len('samples.pth')] + 'ref.pth')
 
 
 
@@ -525,26 +586,26 @@ def main(opt):
             Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
             ref=generate(model, opt)
             
-        if opt.eval_gen:
-            # Evaluate generation
-            evaluate_gen(opt, ref, logger)
+        # if opt.eval_gen:
+        #     # Evaluate generation
+        #     evaluate_gen(opt, ref, logger)
 
 
 def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='ShapeNetCore.v2.PC15k/')
-    parser.add_argument('--category', default='chair')
+    parser.add_argument('--category', default='gluon')
 
     parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
 
     parser.add_argument('--generate',default=True)
-    parser.add_argument('--eval_gen', default=True)
+    parser.add_argument('--eval_gen', default=False)
 
     parser.add_argument('--nc', default=3)
-    parser.add_argument('--npoints', default=2048)
+    parser.add_argument('--npoints', default=30)
     '''model'''
     parser.add_argument('--beta_start', default=0.0001)
     parser.add_argument('--beta_end', default=0.02)
