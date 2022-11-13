@@ -21,7 +21,7 @@ class GNN(nn.Module):
 
         pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
         # fully connected graph
-        self.edge_index = torch.tensor(pairs, dtype=torch.long).t().contiguous().to(device)
+        self.edge_index = torch.tensor(pairs, dtype=torch.long).t().contiguous()
     
 
     def forward(self, x):
