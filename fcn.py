@@ -1,8 +1,11 @@
+import torch
+import torch.nn as nn
+
 class FCN(nn.Module):
     '''
     Fully connected refine network
     '''
-    def __init__(self, p, c):
+    def __init__(self, p=30, c=3):
         """
             args:
                 p: # particles, expected 30
