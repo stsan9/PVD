@@ -15,11 +15,13 @@ class FCN(nn.Module):
         self.p = p
         self.c = c
         self.model = nn.Sequential(
-                    nn.Linear(p*c, 1024),
+                    nn.Linear(p*c, 512),
                     nn.ReLU(),
-                    nn.Linear(1024, 1024),
+                    nn.Linear(512, 512),
                     nn.ReLU(),
-                    nn.Linear(1024, p*c)
+                    nn.Linear(512, 512),
+                    nn.ReLU(),
+                    nn.Linear(512, p*c)
                 )
 
     def forward(self, x):
