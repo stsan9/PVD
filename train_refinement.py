@@ -41,6 +41,8 @@ def train(args):
             print()
     with open(f'{args.model_type}_losses.txt', 'w+') as f:
         f.write(str(losses))
+
+    torch.save(model.state_dict(), args.model_type + '_refinement.pt')
         
 def parse_args():
 
