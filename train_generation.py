@@ -1,5 +1,6 @@
 from jetnet.datasets import JetNet
 import h5py
+from model.mpgan.model import MPNet
 
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -450,8 +451,11 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.diffusion = GaussianDiffusion(betas, loss_type, model_mean_type, model_var_type)
 
-        self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
-                            dropout=args.dropout, extra_feature_channels=0)
+        if opt.network == 'pvcnn':
+            self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
+                                dropout=args.dropout, extra_feature_channels=0)
+        elif opt.network == 'mpnet':
+            self.model = MPNet(args.npoints, args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
         return self.diffusion._prior_bpd(x0)
@@ -893,7 +897,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='/diffusionvol/data/mnist_3d/')
-    parser.add_argument('--category', default='mnist')
+    parser.add_argument('--category', default='gluon')
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
@@ -902,6 +906,7 @@ def parse_args():
     parser.add_argument('--nc', default=3)
     parser.add_argument('--npoints', default=30, help='num points in each cloud')
     '''model'''
+    parser.add_argument('--network', default='pvcnn', help='which nn backbone (other: mpnet)')
     parser.add_argument('--beta_start', default=0.0001)
     parser.add_argument('--beta_end', default=0.02)
     parser.add_argument('--schedule_type', default='linear')
