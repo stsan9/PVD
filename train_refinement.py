@@ -87,16 +87,16 @@ def train(args):
             print(f'Val Loss: {val_losses[-1]}')
             print()
 
-    with open(f'{args.model_type}_train_losses.txt', 'w+') as f:
+    with open(f'./refinement/data/{args.model_type}_train_losses.txt', 'w+') as f:
         f.write(str(train_losses))
-    with open(f'{args.model_type}_val_losses.txt', 'w+') as f:
+    with open(f'./refinement/data/{args.model_type}_val_losses.txt', 'w+') as f:
         f.write(str(val_losses))
 
-    torch.save(model.state_dict(), args.model_type + '_refinement.pt')
+    torch.save(model.state_dict(), './refinement/models/' + args.model_type + '_refinement.pt')
 
     test_loss = eval_loss(val_dataloader, model)
     print(f'Test Loss: {test_loss}')
-    with open(f'{args.model_type}_test_loss.txt', 'w+') as f:
+    with open(f'./refinement/data/{args.model_type}_test_loss.txt', 'w+') as f:
         f.write(str(test_loss) + '\n')
         
 def parse_args():

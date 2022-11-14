@@ -6,7 +6,7 @@ import itertools
 from torch_geometric.nn import EdgeConv
 
 class GNN(nn.Module):
-    def __init__(self, input_dim=3, h_dim=16, n_particles=30, device=torch.device('cuda')):
+    def __init__(self, input_dim=3, h_dim=32, n_particles=30, device=torch.device('cuda')):
         super(GNN, self).__init__()
         refinement_nn = nn.Sequential(
             nn.Linear(2 * input_dim, h_dim),
@@ -43,13 +43,13 @@ class FCN(nn.Module):
         self.p = p
         self.c = c
         self.model = nn.Sequential(
-                    nn.Linear(p*c, 512),
+                    nn.Linear(p*c, 1024),
                     nn.ReLU(),
-                    nn.Linear(512, 512),
+                    nn.Linear(1024, 1024),
                     nn.ReLU(),
-                    nn.Linear(512, 512),
+                    nn.Linear(1024, 1024),
                     nn.ReLU(),
-                    nn.Linear(512, p*c)
+                    nn.Linear(1024, p*c)
                 ).cuda()
 
     def forward(self, x):
