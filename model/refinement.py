@@ -17,11 +17,11 @@ class GNN(nn.Module):
             nn.ReLU(),
             nn.Linear(h_dim, input_dim)
         )
-        self.gcn = EdgeConv(nn=refinement_nn, aggr='mean')
+        self.gcn = EdgeConv(nn=refinement_nn, aggr='mean').cuda()
 
         pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
         # fully connected graph
-        self.edge_index = torch.tensor(pairs, dtype=torch.long).t().contiguous()
+        self.edge_index = torch.tensor(pairs, dtype=torch.long).t().contiguous().cuda()
     
 
     def forward(self, x):
@@ -50,7 +50,7 @@ class FCN(nn.Module):
                     nn.Linear(512, 512),
                     nn.ReLU(),
                     nn.Linear(512, p*c)
-                )
+                ).cuda()
 
     def forward(self, x):
         """
