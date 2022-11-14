@@ -1,5 +1,6 @@
 import os.path as osp
 from model.refinement import GNN, FCN
+from model.mpgan.model import MPNet
 import argparse
 import torch
 import numpy as np
@@ -20,6 +21,8 @@ def train(args):
         model = GNN()
     elif args.model_type == 'FCN':
         model = FCN()
+    elif args.model_type == 'MPNet':
+        model = MPNet(30, 3, output_node_size=3)
 
     model = model.cuda()
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
