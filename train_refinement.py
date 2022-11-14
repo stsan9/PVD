@@ -1,5 +1,5 @@
 import os.path as osp
-from model.refinement import GNN, FCN
+from model.refinement import GNN, FCN, GNN2, NodeFCN2
 from model.mpgan.model import MPNet
 import argparse
 import torch
@@ -23,6 +23,10 @@ def train(args):
         model = FCN()
     elif args.model_type == 'MPNet':
         model = MPNet(30, 3, output_node_size=3)
+    elif args.model_type == 'GNN2':
+        model = GNN2()
+    elif args.model_type == 'NodeFCN2':
+        model = NodeFCN2()
 
     model = model.cuda()
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -81,6 +85,7 @@ def train(args):
             break
 
         if epoch % 100 == 0:
+            torch.save(model.state_dict(), './refinement/models/' + args.model_type + '_refinement.pt')
 
             print(f'Epoch: {epoch}')
             print(f'Train Loss: {train_losses[-1]}')
