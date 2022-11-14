@@ -1,5 +1,6 @@
 from jetnet.datasets import JetNet
 import h5py
+from model.mpgan.model import MPNet
 
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -52,12 +53,11 @@ def load_mnist_data(dataroot):
     return PointDataset(X_train)
 
 
-def load_gluon_dataset(dataroot):
+def load_gluon_dataset(dataroot, dataset_size=1000):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
     particle_data = particle_data[..., :-1] # toss mask dimension
-#     dataset_size = 1000
-#     np.random.shuffle(particle_data)
-#     particle_data = particle_data[:dataset_size]
+    np.random.shuffle(particle_data)
+    particle_data = particle_data[:dataset_size]
     return PointDataset(particle_data)
 
 '''
@@ -450,8 +450,11 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.diffusion = GaussianDiffusion(betas, loss_type, model_mean_type, model_var_type)
 
-        self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
-                            dropout=args.dropout, extra_feature_channels=0)
+        if args.network == 'pvcnn':
+            self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
+                                dropout=args.dropout, extra_feature_channels=0)
+        elif args.network == 'mpnet':
+            self.model = MPNet(args.npoints, args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
         return self.diffusion._prior_bpd(x0)
@@ -622,7 +625,7 @@ def train(gpu, opt, output_dir, noises_init):
         train_dataset = load_mnist_data(opt.dataroot)
 
     if opt.category == 'gluon':
-        train_dataset = load_gluon_dataset(opt.dataroot)
+        train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
     else:
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
@@ -863,7 +866,7 @@ def main():
         train_dataset = load_mnist_data(opt.dataroot)
 
     if opt.category == 'gluon':
-        train_dataset = load_gluon_dataset(opt.dataroot)
+        train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
 
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
@@ -893,7 +896,8 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='/diffusionvol/data/mnist_3d/')
-    parser.add_argument('--category', default='mnist')
+    parser.add_argument('--dataset_size', type=int, default=1000)
+    parser.add_argument('--category', default='gluon')
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
@@ -902,6 +906,7 @@ def parse_args():
     parser.add_argument('--nc', default=3)
     parser.add_argument('--npoints', default=30, help='num points in each cloud')
     '''model'''
+    parser.add_argument('--network', default='pvcnn', help='which nn backbone (other: mpnet)')
     parser.add_argument('--beta_start', default=0.0001)
     parser.add_argument('--beta_end', default=0.02)
     parser.add_argument('--schedule_type', default='linear')
