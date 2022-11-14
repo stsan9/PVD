@@ -20,8 +20,8 @@ if __name__ == '__main__':
     parser.add_argument('--log_scale', action='store_true')
     args = parser.parse_args()
 
-    train_filename = f'{args.model_type}_train_losses.txt'
-    val_filename = f'{args.model_type}_val_losses.txt'
+    train_filename = f'./refinement/data/{args.model_type}_train_losses.txt'
+    val_filename = f'./refinement/data/{args.model_type}_val_losses.txt'
 
     train_losses, val_losses = [], []
     with open(train_filename, 'r') as f:

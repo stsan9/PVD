@@ -54,7 +54,6 @@ def train(args):
 
     train_losses = []
     val_losses = []
-    patience = 0
     for epoch in range(args.epochs):
         _train_losses = []
         for x, y in train_dataloader:
@@ -74,12 +73,7 @@ def train(args):
         val_loss = eval_loss(val_dataloader, model)
         val_losses.append(val_loss)
 
-        if len(val_losses) > 2 and val_loss > val_losses[-2]:
-            patience += 1
-        else:
-            patience = 0
-
-        if patience >= args.patience:
+        if len(val_losses) > args.patience and val_loss >= np.max(val_losses[-args.patience:]):
             print(f'Early stopping at epoch {epoch}.')
             break
 
@@ -107,8 +101,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_type', default='GNN')
     parser.add_argument('--bs', default=256)
-    parser.add_argument('--lr', default=0.001)
-    parser.add_argument('--patience', default=10)
+    parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--patience', type=int, default=10)
     parser.add_argument('--epochs', default=10000)
     parser.add_argument('--data', default='/diffusionvol/experiments/test_generation/pvd_gluons/syn/', help='where sample.pth and ref.pth are stored')
     args = parser.parse_args()
