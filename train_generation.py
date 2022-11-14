@@ -53,12 +53,11 @@ def load_mnist_data(dataroot):
     return PointDataset(X_train)
 
 
-def load_gluon_dataset(dataroot):
+def load_gluon_dataset(dataroot, dataset_size=1000):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
     particle_data = particle_data[..., :-1] # toss mask dimension
-#     dataset_size = 1000
-#     np.random.shuffle(particle_data)
-#     particle_data = particle_data[:dataset_size]
+    np.random.shuffle(particle_data)
+    particle_data = particle_data[:dataset_size]
     return PointDataset(particle_data)
 
 '''
@@ -451,10 +450,10 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.diffusion = GaussianDiffusion(betas, loss_type, model_mean_type, model_var_type)
 
-        if opt.network == 'pvcnn':
+        if args.network == 'pvcnn':
             self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
                                 dropout=args.dropout, extra_feature_channels=0)
-        elif opt.network == 'mpnet':
+        elif args.network == 'mpnet':
             self.model = MPNet(args.npoints, args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
@@ -626,7 +625,7 @@ def train(gpu, opt, output_dir, noises_init):
         train_dataset = load_mnist_data(opt.dataroot)
 
     if opt.category == 'gluon':
-        train_dataset = load_gluon_dataset(opt.dataroot)
+        train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
     else:
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
@@ -867,7 +866,7 @@ def main():
         train_dataset = load_mnist_data(opt.dataroot)
 
     if opt.category == 'gluon':
-        train_dataset = load_gluon_dataset(opt.dataroot)
+        train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
 
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
@@ -897,6 +896,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='/diffusionvol/data/mnist_3d/')
+    parser.add_argument('--dataset_size', type=int, default=1000)
     parser.add_argument('--category', default='gluon')
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
