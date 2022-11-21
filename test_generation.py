@@ -66,10 +66,9 @@ def load_mnist_data(dataroot):
     return PointDataset(X_train)
 
 
-def load_gluon_dataset(dataroot):
+def load_gluon_dataset(dataroot, dataset_size=1000):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
     particle_data = particle_data[..., :-1] # toss mask dimension
-    dataset_size = 4000
     np.random.shuffle(particle_data)
     particle_data = particle_data[:dataset_size]
     return PointDataset(particle_data)
@@ -333,8 +332,11 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.diffusion = GaussianDiffusion(betas, loss_type, model_mean_type, model_var_type)
 
-        self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
-                            dropout=args.dropout, extra_feature_channels=0)
+        if args.network == 'pvcnn':
+            self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
+                                dropout=args.dropout, extra_feature_channels=0)
+        elif args.network == 'mpnet':
+            self.model = MPNet(num_particles=args.npoints, input_node_size=args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
         return self.diffusion._prior_bpd(x0)
@@ -500,7 +502,7 @@ def get_dataset(dataroot, npoints,category,use_mask=False):
 def generate(model, opt):
 
     if opt.category == 'gluon':
-        test_dataset = load_gluon_dataset(opt.dataroot)
+        test_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
     # _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
@@ -597,6 +599,7 @@ def parse_args():
     parser.add_argument('--dataroot', default='ShapeNetCore.v2.PC15k/')
     parser.add_argument('--category', default='gluon')
 
+    parser.add_argument('--dataset_size', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
