@@ -5,6 +5,7 @@ import torch
 from pprint import pprint
 # from metrics.evaluation_metrics import jsd_between_point_cloud_sets as JSD
 # from metrics.evaluation_metrics import compute_all_metrics, EMD_CD
+from model.mpgan.model import MPNet
 
 import torch.nn as nn
 import torch.utils.data
@@ -357,7 +358,7 @@ class Model(nn.Module):
         assert data.dtype == torch.float
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
-        out = self.model(data, t)
+        out = self.model(x=data, t=t)
 
         assert out.shape == torch.Size([B, D, N])
         return out
@@ -521,6 +522,7 @@ def generate(model, opt):
             gen = model.gen_samples(x.shape,
                                        'cuda', clip_denoised=False).detach().cpu()
 
+
             gen = gen.transpose(1,2).contiguous()
             x = x.transpose(1,2).contiguous()
 
@@ -528,6 +530,7 @@ def generate(model, opt):
 
             gen = gen * s + m
             x = x * s + m
+            
             samples.append(gen)
             ref.append(x)
 

@@ -453,6 +453,8 @@ class Model(nn.Module):
             self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
                                 dropout=args.dropout, extra_feature_channels=0)
         elif args.network == 'mpnet':
+            self.model = MPNet(num_particles=args.npoints, input_node_size=args.nc, output_node_size=args.nc)
+        elif args.network == 'mpgen':
             self.model = MPGenerator(num_particles=args.npoints, input_node_size=args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
@@ -477,6 +479,8 @@ class Model(nn.Module):
         if labels is not None:
             if isinstance(labels, (tuple, list)):
                 labels, _ = labels
+            # TODO: delete later
+            labels = None
             out = self.model(data, labels, t)   # mpnet uses labels (jet fts) for masking
         else:
             out = self.model(data, t)
