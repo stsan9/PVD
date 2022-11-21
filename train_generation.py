@@ -475,7 +475,6 @@ class Model(nn.Module):
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
         if labels is not None:
-            import pdb; pdb.set_trace()
             if isinstance(labels, (tuple, list)):
                 labels, _ = labels
             out = self.model(data, labels, t)   # mpnet uses labels (jet fts) for masking
@@ -699,7 +698,6 @@ def train(gpu, opt, output_dir, noises_init):
             if opt.category == 'gluon':
                 labels = data['labels_masks']
             noises_batch = noises_init[data['idx']].transpose(1,2)
-            import pdb; pdb.set_trace()
 
             '''
             train diffusion
