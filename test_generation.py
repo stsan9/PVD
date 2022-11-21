@@ -610,6 +610,7 @@ def parse_args():
     parser.add_argument('--nc', default=3)
     parser.add_argument('--npoints', default=30)
     '''model'''
+    parser.add_argument('--network', default='pvcnn', help='which nn backbone (other: mpnet)')
     parser.add_argument('--beta_start', default=0.0001)
     parser.add_argument('--beta_end', default=0.02)
     parser.add_argument('--schedule_type', default='linear')
