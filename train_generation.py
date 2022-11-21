@@ -895,7 +895,7 @@ def main():
 def parse_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', default='/diffusionvol/data/mnist_3d/')
+    parser.add_argument('--dataroot', default='/diffusionvol/data/')
     parser.add_argument('--dataset_size', type=int, default=1000)
     parser.add_argument('--category', default='gluon')
 

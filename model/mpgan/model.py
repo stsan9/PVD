@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+import numpy as np
 
 from .spectral_normalization import SpectralNorm
 
@@ -495,7 +496,27 @@ class MPNet(nn.Module):
             )
         )
 
-    def forward(self, x: Tensor, labels: Tensor = None) -> Tensor:
+        # time embedding layers: initial
+        self.embedf = nn.ModuleList()
+        self.embedf.append(
+            nn.Sequential(
+                nn.Linear(input_node_size, input_node_size),
+                nn.LeakyReLU(0.1, inplace=True),
+                nn.Linear(input_node_size, input_node_size),
+            )
+        )
+
+        # time embedding: intermediate layers
+        self.embedf.append(
+            nn.Sequential(
+                nn.Linear(hidden_node_size, hidden_node_size),
+                nn.LeakyReLU(0.1, inplace=True),
+                nn.Linear(hidden_node_size, hidden_node_size),
+            )
+        )
+
+
+    def forward(self, x: Tensor, t: Tensor = None, labels: Tensor = None) -> Tensor:
         """Forward pass of MPNet including optional pre and post processing and optional masking.
 
         Args:
@@ -503,24 +524,56 @@ class MPNet(nn.Module):
             where size depends on the particular implementation.
             labels (Tensor): optional tensor of jet level features for a conditioning and/or masking
               of shape ``[batch_size, num_jet_features]``.
+              t (Tensor): timesteps of shape ``[B]``
 
         Returns:
             Tensor: transformed tensor.
 
         """
+        og_dim_1 = x.shape[1]
+        if og_dim_1 == 3:
+            B, D, N = x.shape
+            x = x.reshape(B, N, D)  # reshape [bs, 3, 30] -> [bs, 30, 3]
+
         x = self._pre_mp(x, labels)
 
         x, use_mask, mask, num_jet_particles = self._get_mask(x, labels, **self.mask_args)
 
         # message passing
         for i in range(self.mp_iters):
+
+            time_embed = self._get_timestep_embedding(t, x.shape[2], x.device)
+            time_embed = self.embedf[i](time_embed)[:, None, :]
+            x += time_embed
+
             x = self.mp_layers[i](x, use_mask, mask, labels, num_jet_particles)
 
         x = self._post_mp(x, labels, use_mask, mask, num_jet_particles)
         x = self._final_activation(x)
         x = self._final_mask(x, mask, **self.mask_args)
 
+        if og_dim_1 == 3:
+            B, N, D = x.shape
+            x = x.reshape(B, D, N)  # return to original shape
         return x
+
+    def _get_timestep_embedding(self, timesteps, embed_dim, device):
+        assert len(timesteps.shape) == 1  # and timesteps.dtype == tf.int32
+
+        half_dim = embed_dim // 2
+        if half_dim > 1:
+            emb = np.log(10000) / (half_dim - 1)
+        else:
+            emb = np.log(10000) / (half_dim)
+        emb = torch.from_numpy(np.exp(np.arange(0, half_dim) * -emb)).float().to(device)
+        # emb = tf.range(num_embeddings, dtype=DEFAULT_DTYPE)[:, None] * emb[None, :]
+        emb = timesteps[:, None] * emb[None, :]
+        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
+        if embed_dim % 2 == 1:  # zero pad
+            # emb = tf.concat([emb, tf.zeros([num_embeddings, 1])], axis=1)
+            emb = nn.functional.pad(emb, (0, 1), "constant", 0)
+        assert emb.shape == torch.Size([timesteps.shape[0], embed_dim])
+        return emb
 
     def _pre_mp(self, x, labels):
         """Optional pre-message-passing operations"""
