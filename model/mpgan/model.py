@@ -720,7 +720,6 @@ class MPGenerator(MPNet):
               shape ``[batch size, 1 (num particles)]``, else None.
 
         """
-        import pdb; pdb.set_trace()
 
         use_mask = mask_learn or mask_c or mask_learn_sep
 

@@ -453,8 +453,6 @@ class Model(nn.Module):
             self.model = PVCNN2(num_classes=args.nc, embed_dim=args.embed_dim, use_att=args.attention,
                                 dropout=args.dropout, extra_feature_channels=0)
         elif args.network == 'mpnet':
-            self.model = MPNet(args.npoints, args.nc, output_node_size=args.nc)
-        elif args.network == 'mpgan':
             self.model = MPGenerator(num_particles=args.npoints, input_node_size=args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
@@ -477,7 +475,8 @@ class Model(nn.Module):
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
         if labels is not None:
-            if isinstance(labels, tuple):
+            import pdb; pdb.set_trace()
+            if isinstance(labels, (tuple, list)):
                 labels, _ = labels
             out = self.model(data, labels, t)   # mpnet uses labels (jet fts) for masking
         else:
@@ -700,6 +699,7 @@ def train(gpu, opt, output_dir, noises_init):
             if opt.category == 'gluon':
                 labels = data['labels_masks']
             noises_batch = noises_init[data['idx']].transpose(1,2)
+            import pdb; pdb.set_trace()
 
             '''
             train diffusion
