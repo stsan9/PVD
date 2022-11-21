@@ -1,6 +1,6 @@
 from jetnet.datasets import JetNet
 import h5py
-from model.mpgan.model import MPNet
+from model.mpgan.model import MPNet, MPGenerator
 
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -20,45 +20,36 @@ from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 custom_dataset
 '''
 class PointDataset(torch.utils.data.Dataset):
-    def __init__(self, points) -> None:
+    def __init__(self, points, labels=None, masks=None) -> None:
         super(PointDataset, self).__init__()
         self.points = points
+        self.labels = labels
+        self.masks = masks
         
     def __getitem__(self, idx : int) -> torch.tensor:
         current_points = self.points[idx]
+        labels, masks = None, None
+        if self.labels is not None:
+            labels = self.labels[idx]
+        if self.masks is not None:
+            masks = self.masks[idx]
         current_points = torch.from_numpy(current_points).float()
         return {
             'train_points': current_points,
-            'idx': idx
+            'idx': idx,
+            'labels_masks': (labels, masks)   # jet features and binary mask
         }
     
     def __len__(self) -> int:
         return len(self.points)
 
-
-def load_mnist_data(dataroot):
-    data_file = dataroot + "train_point_clouds.h5"
-    X_train = []
-    with h5py.File(data_file, "r") as hf:    
-        # import pdb; pdb.set_trace()
-        for i in range(0, 5000):
-            idx = str(i)
-            sample = hf[idx]
-            points = sample["points"][:]
-            X_train.append(points)
-    
-    import pdb; pdb.set_trace()
-    X_train = np.stack(X_train) # to fix, pad so pc have same number of points
-
-    return PointDataset(X_train)
-
-
 def load_gluon_dataset(dataroot, dataset_size=1000):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
     particle_data = particle_data[..., :-1] # toss mask dimension
+    masks = particle_data[..., -1]
     np.random.shuffle(particle_data)
     particle_data = particle_data[:dataset_size]
-    return PointDataset(particle_data)
+    return PointDataset(particle_data, jet_data, masks)
 
 '''
 some utils
@@ -349,7 +340,7 @@ class GaussianDiffusion:
 
         return (kl, pred_xstart) if return_pred_xstart else kl
 
-    def p_losses(self, denoise_fn, data_start, t, noise=None):
+    def p_losses(self, denoise_fn, data_start, t, noise=None, labels=None):
         """
         Training loss calculation
         """
@@ -361,15 +352,23 @@ class GaussianDiffusion:
         assert noise.shape == data_start.shape and noise.dtype == data_start.dtype
 
         data_t = self.q_sample(x_start=data_start, t=t, noise=noise)
+        # TODO: mask q sampled data
+        if labels:
+            # masks: [B, 30]
+            _, masks = labels
+            masks = masks[:,:,None].expand(-1, -1, D)
+            masks = masks.reshape(B, D, N).to(data_t.device)
+            data_t *= masks
 
         if self.loss_type == 'mse':
             # predict the noise instead of x_start. seems to be weighted naturally like SNR
-            eps_recon = denoise_fn(data_t, t)
+            eps_recon = denoise_fn(data_t, t, labels)
             assert data_t.shape == data_start.shape
             assert eps_recon.shape == torch.Size([B, D, N])
             assert eps_recon.shape == data_start.shape
             losses = ((noise - eps_recon)**2).mean(dim=list(range(1, len(data_start.shape))))
         elif self.loss_type == 'kl':
+            # TODO: mask here too
             losses = self._vb_terms_bpd(
                 denoise_fn=denoise_fn, data_start=data_start, data_t=data_t, t=t, clip_denoised=False,
                 return_pred_xstart=False)
@@ -455,6 +454,8 @@ class Model(nn.Module):
                                 dropout=args.dropout, extra_feature_channels=0)
         elif args.network == 'mpnet':
             self.model = MPNet(args.npoints, args.nc, output_node_size=args.nc)
+        elif args.network == 'mpgan':
+            self.model = MPGenerator(num_particles=args.npoints, input_node_size=args.nc, output_node_size=args.nc)
 
     def prior_kl(self, x0):
         return self.diffusion._prior_bpd(x0)
@@ -470,17 +471,22 @@ class Model(nn.Module):
         }
 
 
-    def _denoise(self, data, t):
+    def _denoise(self, data, t, labels=None):
         B, D,N= data.shape
         assert data.dtype == torch.float
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
-        out = self.model(data, t)
+        if labels is not None:
+            if isinstance(labels, tuple):
+                labels, _ = labels
+            out = self.model(data, labels, t)   # mpnet uses labels (jet fts) for masking
+        else:
+            out = self.model(data, t)
 
         assert out.shape == torch.Size([B, D, N])
         return out
 
-    def get_loss_iter(self, data, noises=None):
+    def get_loss_iter(self, data, noises=None, labels=None):
         B, D, N = data.shape
         t = torch.randint(0, self.diffusion.num_timesteps, size=(B,), device=data.device)
 
@@ -488,7 +494,7 @@ class Model(nn.Module):
             noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
 
         losses = self.diffusion.p_losses(
-            denoise_fn=self._denoise, data_start=data, t=t, noise=noises)
+            denoise_fn=self._denoise, data_start=data, t=t, noise=noises, labels=labels)
         assert losses.shape == t.shape == torch.Size([B])
         return losses
 
@@ -621,9 +627,6 @@ def train(gpu, opt, output_dir, noises_init):
 
 
     ''' data '''
-    if opt.category == 'mnist':
-        train_dataset = load_mnist_data(opt.dataroot)
-
     if opt.category == 'gluon':
         train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
     else:
@@ -693,6 +696,9 @@ def train(gpu, opt, output_dir, noises_init):
 
         for i, data in enumerate(dataloader):
             x = data['train_points'].transpose(1,2)
+            labels = None
+            if opt.category == 'gluon':
+                labels = data['labels_masks']
             noises_batch = noises_init[data['idx']].transpose(1,2)
 
             '''
@@ -706,7 +712,7 @@ def train(gpu, opt, output_dir, noises_init):
                 x = x.cuda()
                 noises_batch = noises_batch.cuda()
 
-            loss_all = model.get_loss_iter(x, noises_batch)
+            loss_all = model.get_loss_iter(x, noises_batch, labels=labels)
             loss = loss_all.mean()
 
             optimizer.zero_grad()
@@ -861,9 +867,6 @@ def main():
         opt.beta_end = 0.008
         opt.schedule_type = 'warm0.1'
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
-
-    if opt.category == 'mnist':
-        train_dataset = load_mnist_data(opt.dataroot)
 
     if opt.category == 'gluon':
         train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)

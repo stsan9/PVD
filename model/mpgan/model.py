@@ -516,7 +516,7 @@ class MPNet(nn.Module):
         )
 
 
-    def forward(self, x: Tensor, t: Tensor = None, labels: Tensor = None) -> Tensor:
+    def forward(self, x: Tensor, labels: Tensor = None, t: Tensor = None) -> Tensor:
         """Forward pass of MPNet including optional pre and post processing and optional masking.
 
         Args:
@@ -720,6 +720,7 @@ class MPGenerator(MPNet):
               shape ``[batch size, 1 (num particles)]``, else None.
 
         """
+        import pdb; pdb.set_trace()
 
         use_mask = mask_learn or mask_c or mask_learn_sep
 
