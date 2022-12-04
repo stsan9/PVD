@@ -1,3 +1,4 @@
+import jetnet
 from jetnet.datasets import JetNet
 import h5py
 from model.mpgan.model import MPNet, MPGenerator
@@ -20,24 +21,21 @@ from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 custom_dataset
 '''
 class PointDataset(torch.utils.data.Dataset):
-    def __init__(self, points, labels=None, masks=None) -> None:
+    def __init__(self, points, labels=None) -> None:
         super(PointDataset, self).__init__()
         self.points = points
         self.labels = labels
-        self.masks = masks
         
     def __getitem__(self, idx : int) -> torch.tensor:
         current_points = self.points[idx]
-        labels, masks = None, None
+        labels = None
         if self.labels is not None:
             labels = self.labels[idx]
-        if self.masks is not None:
-            masks = self.masks[idx]
         current_points = torch.from_numpy(current_points).float()
         return {
             'train_points': current_points,
             'idx': idx,
-            'labels_masks': (labels, masks)   # jet features and binary mask
+            'labels': labels   # jet features
         }
     
     def __len__(self) -> int:
@@ -45,11 +43,10 @@ class PointDataset(torch.utils.data.Dataset):
 
 def load_gluon_dataset(dataroot, dataset_size=1000):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
-    particle_data = particle_data[..., :-1] # toss mask dimension
-    masks = particle_data[..., -1]
+    particle_data = particle_data
     np.random.shuffle(particle_data)
     particle_data = particle_data[:dataset_size]
-    return PointDataset(particle_data, jet_data, masks)
+    return PointDataset(particle_data, jet_data)
 
 '''
 some utils
@@ -352,10 +349,10 @@ class GaussianDiffusion:
         assert noise.shape == data_start.shape and noise.dtype == data_start.dtype
 
         data_t = self.q_sample(x_start=data_start, t=t, noise=noise)
-        # TODO: mask q sampled data
+        # TODO: double check masking data_t is correct
         if labels:
             # masks: [B, 30]
-            _, masks = labels
+            masks = data_start[..., -1]
             masks = masks[:,:,None].expand(-1, -1, D)
             masks = masks.reshape(B, D, N).to(data_t.device)
             data_t *= masks
@@ -477,10 +474,6 @@ class Model(nn.Module):
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
         if labels is not None:
-            if isinstance(labels, (tuple, list)):
-                labels, _ = labels
-            # TODO: delete later
-            labels = None
             out = self.model(data, labels, t)   # mpnet uses labels (jet fts) for masking
         else:
             out = self.model(data, t)
@@ -700,7 +693,7 @@ def train(gpu, opt, output_dir, noises_init):
             x = data['train_points'].transpose(1,2)
             labels = None
             if opt.category == 'gluon':
-                labels = data['labels_masks']
+                labels = data['labels']
             noises_batch = noises_init[data['idx']].transpose(1,2)
 
             '''
