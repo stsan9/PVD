@@ -531,7 +531,7 @@ class MPNet(nn.Module):
 
         """
         og_dim_1 = x.shape[1]
-        if og_dim_1 == 3:
+        if og_dim_1 == 4:
             B, D, N = x.shape
             x = x.reshape(B, N, D)  # reshape [bs, 3, 30] -> [bs, 30, 3]
 
@@ -552,7 +552,7 @@ class MPNet(nn.Module):
         x = self._final_activation(x)
         x = self._final_mask(x, mask, **self.mask_args)
 
-        if og_dim_1 == 3:
+        if og_dim_1 == 4:
             B, N, D = x.shape
             x = x.reshape(B, D, N)  # return to original shape
         return x

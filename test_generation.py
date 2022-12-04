@@ -25,11 +25,12 @@ from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 custom_dataset
 '''
 class PointDataset(torch.utils.data.Dataset):
-    def __init__(self, points) -> None:
+    def __init__(self, points, labels=None) -> None:
         super(PointDataset, self).__init__()
         self.points = points
-        self.m = points.mean(axis=1).reshape(-1, 1, 3)
-        self.std = points.std(axis=1).reshape(-1, 1, 3)
+        self.m = points[..., :-1].mean(axis=1).reshape(-1, 1, 3)
+        self.std = points[..., :-1].std(axis=1).reshape(-1, 1, 3)
+        self.labels = labels
         
     def __getitem__(self, idx : int) -> torch.tensor:
         current_points = self.points[idx]
@@ -38,41 +39,30 @@ class PointDataset(torch.utils.data.Dataset):
         std = self.std[idx]
         m = torch.from_numpy(m).float()
         std = torch.from_numpy(std).float()
+
+        labels = None
+        if self.labels is not None:
+            labels = self.labels[idx]
+
         return {
             'train_points': current_points,
             'test_points': current_points,  # doesn't really matter
             'idx': idx,
             'mean': m,
-            'std': std
+            'std': std,
+            'labels': labels   # jet features
         }
     
     def __len__(self) -> int:
         return len(self.points)
 
 
-def load_mnist_data(dataroot):
-    data_file = dataroot + "train_point_clouds.h5"
-    X_train = []
-    with h5py.File(data_file, "r") as hf:    
-        # import pdb; pdb.set_trace()
-        for i in range(0, 5000):
-            idx = str(i)
-            sample = hf[idx]
-            points = sample["points"][:]
-            X_train.append(points)
-    
-    import pdb; pdb.set_trace()
-    X_train = np.stack(X_train) # to fix, pad so pc have same number of points
-
-    return PointDataset(X_train)
-
-
 def load_gluon_dataset(dataroot, dataset_size=1000):
     particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
-    particle_data = particle_data[..., :-1] # toss mask dimension
+    particle_data = particle_data
     np.random.shuffle(particle_data)
     particle_data = particle_data[:dataset_size]
-    return PointDataset(particle_data)
+    return PointDataset(particle_data, jet_data)
 
 '''
 models
@@ -528,6 +518,7 @@ def generate(model, opt):
 
 
 
+            import pdb; pdb.set_trace()
             gen = gen * s + m
             x = x * s + m
             
@@ -610,8 +601,8 @@ def parse_args():
     parser.add_argument('--generate',default=True)
     parser.add_argument('--eval_gen', default=False)
 
-    parser.add_argument('--nc', default=3)
-    parser.add_argument('--npoints', default=30)
+    parser.add_argument('--nc', type=int, default=3)
+    parser.add_argument('--npoints', type=int, default=30)
     '''model'''
     parser.add_argument('--network', default='pvcnn', help='which nn backbone (other: mpnet)')
     parser.add_argument('--beta_start', default=0.0001)

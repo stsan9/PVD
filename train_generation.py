@@ -1,5 +1,6 @@
 import jetnet
 from jetnet.datasets import JetNet
+from jetnet.datasets.normalisations import FeaturewiseLinear
 import h5py
 from model.mpgan.model import MPNet, MPGenerator
 
@@ -350,9 +351,9 @@ class GaussianDiffusion:
 
         data_t = self.q_sample(x_start=data_start, t=t, noise=noise)
         # TODO: double check masking data_t is correct
-        if labels:
+        if labels is not None:
             # masks: [B, 30]
-            masks = data_start[..., -1]
+            masks = data_start[:, -1, :]
             masks = masks[:,:,None].expand(-1, -1, D)
             masks = masks.reshape(B, D, N).to(data_t.device)
             data_t *= masks
@@ -901,8 +902,8 @@ def parse_args():
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
 
-    parser.add_argument('--nc', default=3)
-    parser.add_argument('--npoints', default=30, help='num points in each cloud')
+    parser.add_argument('--nc', type=int, default=3)
+    parser.add_argument('--npoints', type=int, default=30, help='num points in each cloud')
     '''model'''
     parser.add_argument('--network', default='pvcnn', help='which nn backbone (other: mpnet)')
     parser.add_argument('--beta_start', default=0.0001)
