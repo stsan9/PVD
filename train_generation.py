@@ -600,8 +600,6 @@ def train(gpu, opt, output_dir, noises_init):
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
 
-    import pdb; pdb.set_trace()
-
 
     '''
     create networks
