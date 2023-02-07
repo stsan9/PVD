@@ -57,11 +57,11 @@ class MNISTGraphDataset(Dataset):
     def __getitem__(self, idx):
         return {
             'train_points': self.X[idx],
-            'idx': idx,
-            'label': None
+            'idx': idx
         }
 
-def load_mnist_graph(data_dir, batch_size, num_particles, num, dataset_size=None):
+def load_mnist_graph(data_dir, num_particles, num, dataset_size=None):
+    # TODO: utilize dataset_size param
     X_train = MNISTGraphDataset(
         data_dir=data_dir, num_thresholded=num_particles, train=True, num=num
     )

@@ -15,7 +15,7 @@ from model.pvcnn_generation import PVCNN2Base
 import torch.distributed as dist
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
-from datasets.mnist import load_mnist_graph
+from datasets.mnist_graph_data import load_mnist_graph
 
 
 '''
@@ -595,10 +595,12 @@ def train(gpu, opt, output_dir, noises_init):
     if opt.category == 'gluon':
         train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
     if opt.category == 'mnist':
-        train_dataset, _ = load_mnist_graph(opt.dataroot, opt.bs, opt.npoints, opt.mnist_num, opt.dataset_size)
+        train_dataset, _ = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, opt.dataset_size)
     else:
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
+
+    import pdb; pdb.set_trace()
 
 
     '''
@@ -838,7 +840,7 @@ def main():
     if opt.category == 'gluon':
         train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
     if opt.category == 'mnist':
-        train_dataset, _ = load_mnist_graph(opt.dataroot, opt.bs, opt.npoints, opt.mnist_num, opt.dataset_size)
+        train_dataset, _ = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, opt.dataset_size)
 
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
