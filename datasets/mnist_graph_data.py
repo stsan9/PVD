@@ -1,6 +1,6 @@
 """
 Convert mnist dataset into 3d graph dataset
-https://github.com/rkansal47/MPGAN/blob/main/mnist/mnist_dataset.py
+Adapted from: https://github.com/rkansal47/MPGAN/blob/main/mnist/mnist_dataset.py
 """
 import torch
 from torch.utils.data import Dataset
@@ -55,9 +55,13 @@ class MNISTGraphDataset(Dataset):
         return len(self.X)
 
     def __getitem__(self, idx):
-        return self.X[idx]
+        return {
+            'train_points': self.X[idx],
+            'idx': idx,
+            'label': None
+        }
 
-def load_mnist_graph(data_dir, batch_size, num_particles, num):
+def load_mnist_graph(data_dir, batch_size, num_particles, num, dataset_size=None):
     X_train = MNISTGraphDataset(
         data_dir=data_dir, num_thresholded=num_particles, train=True, num=num
     )

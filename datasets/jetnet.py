@@ -1,5 +1,6 @@
 import torch
 import jetnet
+import numpy as np
 from jetnet.datasets import JetNet
 from jetnet.datasets.normalisations import FeaturewiseLinear
 
