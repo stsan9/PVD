@@ -15,6 +15,7 @@ from model.pvcnn_generation import PVCNN2Base
 import torch.distributed as dist
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
+from datasets.mnist import load_mnist_graph
 
 
 '''
