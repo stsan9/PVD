@@ -15,7 +15,7 @@ from model.pvcnn_generation import PVCNN2Base
 import torch.distributed as dist
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
-from datasets.mnist import load_mnist_graph
+from datasets.mnist_graph_data import load_mnist_graph
 
 
 '''
@@ -594,6 +594,8 @@ def train(gpu, opt, output_dir, noises_init):
     ''' data '''
     if opt.category == 'gluon':
         train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
+    if opt.category == 'mnist':
+        train_dataset, _ = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, opt.dataset_size)
     else:
         train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
@@ -835,6 +837,8 @@ def main():
 
     if opt.category == 'gluon':
         train_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
+    if opt.category == 'mnist':
+        train_dataset, _ = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, opt.dataset_size)
 
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
@@ -866,6 +870,7 @@ def parse_args():
     parser.add_argument('--dataroot', default='/diffusionvol/data/')
     parser.add_argument('--dataset_size', type=int, default=1000)
     parser.add_argument('--category', default='gluon')
+    parser.add_argument('--mnist_num', type=int, default=3)
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
