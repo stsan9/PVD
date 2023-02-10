@@ -478,9 +478,6 @@ def generate(model, opt):
             gen = gen.transpose(1,2).contiguous()
             x = x.transpose(1,2).contiguous()
 
-
-
-            import pdb; pdb.set_trace()
             gen = gen * s + m
             x = x * s + m
             
