@@ -308,7 +308,7 @@ class Model(nn.Module):
         assert data.dtype == torch.float
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
-        out = self.model(x=data, t=t)
+        out = self.model(data, t=t)
 
         assert out.shape == torch.Size([B, D, N])
         return out
