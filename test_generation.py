@@ -21,6 +21,7 @@ from tqdm import tqdm
 
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
+from datasets.mnist_graph_data import load_mnist_graph
 
 
 '''
@@ -453,6 +454,8 @@ def generate(model, opt):
 
     if opt.category == 'gluon':
         test_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size, generate=True)
+    if opt.category == 'mnist':
+        _, test_dataset = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, generate=True)
     # _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
@@ -549,8 +552,9 @@ def main(opt):
 def parse_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', default='ShapeNetCore.v2.PC15k/')
+    parser.add_argument('--dataroot', default='/diffusionvol/data/')
     parser.add_argument('--category', default='gluon')
+    parser.add_argument('--mnist_num', type=int, default=3)
 
     parser.add_argument('--dataset_size', type=int, default=1000)
     parser.add_argument('--batch_size', type=int, default=50, help='input batch size')

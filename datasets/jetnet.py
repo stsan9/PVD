@@ -33,8 +33,7 @@ class PointDataset(torch.utils.data.Dataset):
             std = torch.from_numpy(std).float()
         
             return {
-                'train_points': current_points,
-                'test_points': current_points,  # doesn't really matter
+                'test_points': current_points,  # same functionality as train_points
                 'idx': idx,
                 'mean': m,
                 'std': std,

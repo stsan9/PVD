@@ -11,7 +11,7 @@ import logging
 
 
 class MNISTGraphDataset(Dataset):
-    def __init__(self, data_dir, num_thresholded, train=True, intensities=True, num=-1):
+    def __init__(self, data_dir, num_thresholded, train=True, intensities=True, num=-1, generate=False):
         if train:
             dataset = np.loadtxt(data_dir + "/mnist_train.csv", delimiter=",", dtype=np.float32)
         else:
@@ -47,6 +47,12 @@ class MNISTGraphDataset(Dataset):
 
         self.X = torch.FloatTensor(self.X)
 
+
+        self.generate = generate
+        if self.generate:
+            self.m = self.X.mean(axis=1).reshape(-1, 1, 3)
+            self.std = self.X.std(axis=1).reshape(-1, 1, 3)
+
         logging.debug(f"{self.X.shape = }")
         # print(self.X[0])
         logging.info("Data Processed")
@@ -55,19 +61,30 @@ class MNISTGraphDataset(Dataset):
         return len(self.X)
 
     def __getitem__(self, idx):
-        return {
-            'train_points': self.X[idx],
-            'idx': idx
-        }
+        if self.generate:
+            m = self.m[idx]
+            std = self.std[idx]
 
-def load_mnist_graph(data_dir, num_particles, num, dataset_size=None):
-    # TODO: utilize dataset_size param
+            return {
+                'test_points': self.X[idx],
+                'idx': idx,
+                'mean': m,
+                'std': std
+            }
+        else:
+            return {
+                'train_points': self.X[idx],
+                'idx': idx
+            }
+
+def load_mnist_graph(data_dir, num_particles, num, dataset_size=None, generate=False):
+    # TODO: utilize dataset_size param if necessary (prob not)
     X_train = MNISTGraphDataset(
-        data_dir=data_dir, num_thresholded=num_particles, train=True, num=num
+        data_dir=data_dir, num_thresholded=num_particles, train=True, num=num, generate=generate
     )
 
     X_test = MNISTGraphDataset(
-        data_dir=data_dir, num_thresholded=num_particles, train=False, num=num
+        data_dir=data_dir, num_thresholded=num_particles, train=False, num=num, generate=generate
     )
 
     return X_train, X_test
