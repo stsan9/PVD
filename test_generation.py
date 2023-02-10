@@ -20,49 +20,8 @@ from model.pvcnn_generation import PVCNN2Base
 from tqdm import tqdm
 
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
+from datasets.jetnet import load_gluon_dataset
 
-'''
-custom_dataset
-'''
-class PointDataset(torch.utils.data.Dataset):
-    def __init__(self, points, labels=None) -> None:
-        super(PointDataset, self).__init__()
-        self.points = points
-        self.m = points[..., :-1].mean(axis=1).reshape(-1, 1, 3)
-        self.std = points[..., :-1].std(axis=1).reshape(-1, 1, 3)
-        self.labels = labels
-        
-    def __getitem__(self, idx : int) -> torch.tensor:
-        current_points = self.points[idx]
-        current_points = torch.from_numpy(current_points).float()
-        m = self.m[idx]
-        std = self.std[idx]
-        m = torch.from_numpy(m).float()
-        std = torch.from_numpy(std).float()
-
-        labels = None
-        if self.labels is not None:
-            labels = self.labels[idx]
-
-        return {
-            'train_points': current_points,
-            'test_points': current_points,  # doesn't really matter
-            'idx': idx,
-            'mean': m,
-            'std': std,
-            'labels': labels   # jet features
-        }
-    
-    def __len__(self) -> int:
-        return len(self.points)
-
-
-def load_gluon_dataset(dataroot, dataset_size=1000):
-    particle_data, jet_data = JetNet.getData(jet_type=["g"], data_dir=dataroot)
-    particle_data = particle_data
-    np.random.shuffle(particle_data)
-    particle_data = particle_data[:dataset_size]
-    return PointDataset(particle_data, jet_data)
 
 '''
 models
@@ -493,7 +452,7 @@ def get_dataset(dataroot, npoints,category,use_mask=False):
 def generate(model, opt):
 
     if opt.category == 'gluon':
-        test_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size)
+        test_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size, generate=True)
     # _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
