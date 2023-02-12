@@ -417,7 +417,7 @@ def get_dataset(dataroot, npoints,category,use_mask=False):
 
 #     if ref_pcs is None:
 #         _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category, use_mask=False)
-#         test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
+#         test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.bs,
 #                                                       shuffle=False, num_workers=int(opt.workers), drop_last=False)
 #         ref = []
 #         for data in tqdm(test_dataloader, total=len(test_dataloader), desc='Generating Samples'):
@@ -437,7 +437,7 @@ def get_dataset(dataroot, npoints,category,use_mask=False):
 
 
 #     # Compute metrics
-#     results = compute_all_metrics(sample_pcs, ref_pcs, opt.batch_size)
+#     results = compute_all_metrics(sample_pcs, ref_pcs, opt.bs)
 #     results = {k: (v.cpu().detach().item()
 #                    if not isinstance(v, float) else v) for k, v in results.items()}
 
@@ -458,7 +458,7 @@ def generate(model, opt):
         _, test_dataset = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, generate=True)
     # _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.bs,
                                                   shuffle=False, num_workers=int(opt.workers), drop_last=False)
 
     with torch.no_grad():
@@ -558,7 +558,7 @@ def parse_args():
     parser.add_argument('--mnist_num', type=int, default=3)
 
     parser.add_argument('--dataset_size', type=int, default=1000)
-    parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
+    parser.add_argument('--bs', type=int, default=50, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
 
