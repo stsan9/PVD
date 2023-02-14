@@ -541,7 +541,7 @@ def main(opt):
                 opt.eval_path = os.path.join(outf_syn, 'samples.pth')
             else:
                 outf_vol = get_output_dir_vol('', 'test_generation')
-                opt.eval_path = os.path.join(opt.eval_path, outf_vol)
+                opt.eval_path = os.path.join(opt.eval_path, outf_vol, 'samples.pth')
             Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
             ref=generate(model, opt)
             
