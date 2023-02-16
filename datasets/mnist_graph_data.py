@@ -19,6 +19,7 @@ class MNISTGraphDataset(Dataset):
 
         logging.info("MNIST CSV Loaded")
 
+        # isolate specified num from dataset
         if isinstance(num, list):
             map1 = list(map(lambda x: x in num, dataset[:, 0]))
             dataset = dataset[map1]
@@ -27,6 +28,7 @@ class MNISTGraphDataset(Dataset):
 
         logging.debug(f"{dataset.shape = }")
 
+        # normalize data between [-0.5, 0.5]
         X_pre = (dataset[:, 1:] - 127.5) / 255.0
 
         imrange = np.linspace(-0.5, 0.5, num=28, endpoint=False)
@@ -36,13 +38,16 @@ class MNISTGraphDataset(Dataset):
         xs = xs.reshape(-1)
         ys = ys.reshape(-1)
 
+        # [num_samples, num_pixels, (x_coord, y_coord, pixel_intensity)]
         self.X = np.array(list(map(lambda x: np.array([xs, ys, x]).T, X_pre)))
 
         if not intensities:
+            # only take coordinates associated with highest intensity (drop intensity)
             self.X = np.array(
                 list(map(lambda x: x[x[:, 2].argsort()][-num_thresholded:, :2], self.X))
             )
         else:
+            # take pixels with highest intensities per sample
             self.X = np.array(list(map(lambda x: x[x[:, 2].argsort()][-num_thresholded:], self.X)))
 
         self.X = torch.FloatTensor(self.X)
