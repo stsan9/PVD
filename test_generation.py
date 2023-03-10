@@ -278,7 +278,7 @@ class Model(nn.Module):
 
     def _denoise(self, data, t):
         B, D,N= data.shape
-        assert data.dtype == torch.float
+        assert data.dtype == torch.float or data.dtype == torch.float64
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
         out = self.model(data, t=t)
