@@ -38,7 +38,6 @@ def sample(data, model, opt,
     step_indices = torch.arange(num_steps, dtype=torch.float, device=device)
     t_steps = (sigma_max ** (1 / rho) + step_indices / (num_steps - 1) * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))) ** rho
     t_steps = torch.cat([torch.as_tensor(t_steps), torch.zeros_like(t_steps[:1])])      # appends 0 at end
-    print(t_steps)
 
     x_next = latents.to(torch.float) * t_steps[0]     # scales noise by sigma_max
     for i, (t_cur, t_next) in list(enumerate(zip(t_steps[:-1], t_steps[1:]))):  # 0, ..., N-1
