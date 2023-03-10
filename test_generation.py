@@ -21,6 +21,7 @@ from tqdm import tqdm
 
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
+from datasets.mnist_graph_data import load_mnist_graph
 
 
 '''
@@ -278,7 +279,7 @@ class Model(nn.Module):
         assert data.dtype == torch.float
         assert t.shape == torch.Size([B]) and t.dtype == torch.int64
 
-        out = self.model(x=data, t=t)
+        out = self.model(data, t=t)
 
         assert out.shape == torch.Size([B, D, N])
         return out
@@ -350,9 +351,11 @@ def generate(model, opt):
 
     if opt.category == 'gluon':
         test_dataset = load_gluon_dataset(opt.dataroot, opt.dataset_size, generate=True)
+    if opt.category == 'mnist':
+        _, test_dataset = load_mnist_graph(opt.dataroot, opt.npoints, opt.mnist_num, generate=True)
     # _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.bs,
                                                   shuffle=False, num_workers=int(opt.workers), drop_last=False)
 
     with torch.no_grad():
@@ -422,7 +425,11 @@ def main(opt):
 
         ref = None
         if opt.generate:
-            opt.eval_path = os.path.join(outf_syn, 'samples.pth')
+            if opt.eval_path == '':
+                opt.eval_path = os.path.join(outf_syn, 'samples.pth')
+            else:
+                outf_vol = get_output_dir_vol('', 'test_generation')
+                opt.eval_path = os.path.join(opt.eval_path, outf_vol, 'samples.pth')
             Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
             ref=generate(model, opt)
 
@@ -430,11 +437,12 @@ def main(opt):
 def parse_args():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', default='ShapeNetCore.v2.PC15k/')
+    parser.add_argument('--dataroot', default='/diffusionvol/data/')
     parser.add_argument('--category', default='gluon')
+    parser.add_argument('--mnist_num', type=int, default=3)
 
     parser.add_argument('--dataset_size', type=int, default=1000)
-    parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
+    parser.add_argument('--bs', type=int, default=50, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
 
