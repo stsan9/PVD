@@ -23,7 +23,7 @@ from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
 from datasets.mnist_graph_data import load_mnist_graph
 
-import sampler.heun_sampler
+import sampler.heun_sampler as heun_sampler
 
 
 '''
