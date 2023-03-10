@@ -23,6 +23,8 @@ from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from datasets.jetnet import load_gluon_dataset
 from datasets.mnist_graph_data import load_mnist_graph
 
+import sampler.heun_sampler
+
 
 '''
 models
@@ -197,8 +199,8 @@ class GaussianDiffusion:
         img_t = noise_fn(size=shape, dtype=torch.float, device=device)
         loop_range = final_time if not keep_running else len(self.betas)
         for t in tqdm(reversed(range(0, loop_range)), total=loop_range, leave=False, desc='p_loop'):
-            img_t = constrain_fn(img_t, t)
-            t_ = torch.empty(shape[0], dtype=torch.int64, device=device).fill_(t)
+            img_t = constrain_fn(img_t, t)  # does nothing
+            t_ = torch.empty(shape[0], dtype=torch.int64, device=device).fill_(t)   # current timestep value (t); shape = (num samples,)
             img_t = self.p_sample(denoise_fn=denoise_fn, data=img_t,t=t_, noise_fn=noise_fn,
                                   clip_denoised=clip_denoised, return_pred_xstart=False).detach()
 
@@ -216,7 +218,7 @@ class GaussianDiffusion:
         img_t = encoding
 
         for k in reversed(range(0,t)):
-            img_t = constrain_fn(img_t, k)
+            img_t = constrain_fn(img_t, k)  # essentially does nothing; can delete
             t_ = torch.empty(x0.shape[0], dtype=torch.int64, device=x0.device).fill_(k)
             img_t = self.p_sample(denoise_fn=denoise_fn, data=img_t, t=t_, noise_fn=noise_fn,
                                   clip_denoised=False, return_pred_xstart=False, use_var=True).detach()
@@ -368,8 +370,11 @@ def generate(model, opt):
             x = data['test_points'].transpose(1,2)
             m, s = data['mean'].float(), data['std'].float()
 
-            gen = model.gen_samples(x.shape,
-                                       'cuda', clip_denoised=False).detach().cpu()
+            if opt.sampler == 'EDM':
+                gen = heun_sampler.sample(x, model, opt)    # TODO: add more params
+            else:
+                gen = model.gen_samples(x.shape,
+                                        'cuda', clip_denoised=False).detach().cpu()
 
 
             gen = gen.transpose(1,2).contiguous()
@@ -468,6 +473,7 @@ def parse_args():
 
 
     parser.add_argument('--model', default='',required=True, help="path to model (to continue training)")
+    parser.add_argument('--sampler', default='default', help='Set to `EDM` if using heun')
 
     '''eval'''
     parser.add_argument('--eval_path',
