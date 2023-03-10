@@ -373,7 +373,7 @@ def generate(model, opt):
             m, s = data['mean'].float(), data['std'].float()
 
             if opt.sampler == 'EDM':
-                gen = heun_sampler.sample(x, model, opt)    # TODO: add more params
+                gen = heun_sampler.sample(x, model, opt).detach().cpu()    # TODO: add more params
             else:
                 gen = model.gen_samples(x.shape,
                                         'cuda', clip_denoised=False).detach().cpu()
