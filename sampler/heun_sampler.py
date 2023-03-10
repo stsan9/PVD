@@ -13,7 +13,7 @@ import numpy as np
 
 
 def sample(data, model, opt,
-           num_steps=18,            # NOTE: N in the paper
+#            num_steps=18,            # NOTE: N in the paper
            sigma_min=0.002,
            sigma_max=80,
            rho=7,                   # NOTE: p in the paper
@@ -31,6 +31,7 @@ def sample(data, model, opt,
     # sigma_min = max(sigma_min, net.sigma_min)
     # sigma_max = min(sigma_max, net.sigma_max)
 
+    num_steps = opt.time_num
     # initial gaussian noise
     latents = torch.randn_like(data, device=device)
 
