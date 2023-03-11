@@ -31,7 +31,7 @@ def sample(data, model, opt,
     # sigma_min = max(sigma_min, net.sigma_min)
     # sigma_max = min(sigma_max, net.sigma_max)
 
-    num_steps = opt.time_num
+    num_steps = int(opt.time_num)
     # initial gaussian noise
     latents = torch.randn_like(data, device=device)
 
